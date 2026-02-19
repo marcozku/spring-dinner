@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Bingo 抽獎器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a0a0a 0%, #4a0e0e 100%);
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: linear-gradient(135deg, #b41e3a, #d4af37);
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+
+        .header h1 {
+            font-size: 2.2em;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .main-display {
+            background: rgba(255,255,255,0.05);
+            border: 3px solid #d4af37;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 15px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            flex-shrink: 0;
+        }
+
+        .main-display.drawing {
+            animation: glow 0.5s ease-in-out infinite;
+        }
+
+        @keyframes glow {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(212,175,55,0.3), 0 0 40px rgba(212,175,55,0.2);
+            }
+            50% {
+                box-shadow: 0 0 60px rgba(212,175,55,0.8), 0 0 100px rgba(212,175,55,0.4);
+            }
+        }
+
+        .current-number {
+            font-size: 6em;
+            font-weight: bold;
+            color: #d4af37;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.5);
+            min-height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .current-number.drawing {
+            animation: drawing 0.3s ease-in-out infinite;
+        }
+
+        .current-number.revealed {
+            animation: reveal 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        @keyframes drawing {
+            0%, 100% {
+                transform: scale(1) rotate(0deg);
+                opacity: 1;
+            }
+            25% {
+                transform: scale(1.15) rotate(-5deg);
+                opacity: 0.8;
+            }
+            50% {
+                transform: scale(0.95) rotate(5deg);
+                opacity: 1;
+            }
+            75% {
+                transform: scale(1.1) rotate(-3deg);
+                opacity: 0.9;
+            }
+        }
+
+        @keyframes reveal {
+            0% {
+                transform: scale(0) rotate(-180deg);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.3) rotate(10deg);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1) rotate(0deg);
+                opacity: 1;
+            }
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            font-size: 1.1em;
+            font-weight: bold;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-draw {
+            background: linear-gradient(135deg, #d4af37, #f4d03f);
+            color: #1a0a0a;
+        }
+
+        .btn-draw:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(212,175,55,0.5);
+        }
+
+        .btn-draw:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-newround {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            display: none;
+        }
+
+        .btn-newround:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(52,152,219,0.5);
+        }
+
+        .btn-newround.visible {
+            display: block;
+        }
+
+        .btn-reset {
+            background: linear-gradient(135deg, #b41e3a, #e74c3c);
+            color: white;
+        }
+
+        .btn-reset:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(180,30,58,0.5);
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+        }
+
+        .stat-box {
+            background: rgba(255,255,255,0.05);
+            border: 2px solid #d4af37;
+            border-radius: 10px;
+            padding: 10px 20px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.8em;
+            color: #d4af37;
+            margin-bottom: 3px;
+        }
+
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        .history-section {
+            background: rgba(255,255,255,0.05);
+            border: 2px solid #d4af37;
+            border-radius: 10px;
+            padding: 10px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            flex-shrink: 0;
+        }
+
+        .history-header h2 {
+            color: #d4af37;
+            font-size: 1.2em;
+        }
+
+        .history-count {
+            background: #d4af37;
+            color: #1a0a0a;
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .history-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+            gap: 6px;
+            overflow-y: auto;
+            padding: 5px;
+            flex: 1;
+        }
+
+        .history-item {
+            background: linear-gradient(135deg, #d4af37, #f4d03f);
+            color: #1a0a0a;
+            padding: 8px;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 1em;
+            font-weight: bold;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .history-item .number {
+            font-size: 1em;
+            font-weight: bold;
+        }
+
+        .history-item .round-label {
+            font-size: 0.6em;
+            font-weight: normal;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+
+        .history-item.old {
+            background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+            padding: 5px 3px;
+        }
+
+        .history-item.old .number {
+            font-size: 0.85em;
+        }
+
+        .history-item.old .round-label {
+            font-size: 0.5em;
+        }
+
+        .history-grid::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .history-grid::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.05);
+            border-radius: 5px;
+        }
+
+        .history-grid::-webkit-scrollbar-thumb {
+            background: #d4af37;
+            border-radius: 5px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 30px;
+            color: rgba(255,255,255,0.5);
+            font-size: 1em;
+        }
+
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            background: #d4af37;
+            animation: confetti-fall 3s linear forwards;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        @keyframes confetti-fall {
+            0% {
+                transform: translateY(-100vh) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.5em;
+            }
+            .current-number {
+                font-size: 4em;
+            }
+            .controls {
+                flex-direction: column;
+            }
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🐎 Bingo 抽獎器 🎯</h1>
+        </div>
+
+        <div class="main-display" id="mainDisplay">
+            <div class="current-number" id="currentNumber">準備抽獎</div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-draw" id="drawBtn" onclick="drawNumber()">🎲 抽獎</button>
+            <button class="btn btn-newround" id="newRoundBtn" onclick="newRound()">🔄 新一輪</button>
+            <button class="btn btn-reset" onclick="resetAll()">❌ 全部清除</button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-label">已抽取</div>
+                <div class="stat-value" id="drawnCount">0</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">剩餘</div>
+                <div class="stat-value" id="remainingCount">75</div>
+            </div>
+        </div>
+
+        <div class="history-section">
+            <div class="history-header">
+                <h2>📋 已抽取號碼</h2>
+                <div class="history-count" id="historyCount">0 個</div>
+            </div>
+            <div class="history-grid" id="historyGrid">
+                <div class="empty-state">尚未抽取任何號碼</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BINGO_NUMBERS = Array.from({length: 75}, (_, i) => i + 1);
+
+        let currentRound = 0;
+        let rounds = [{
+            availableNumbers: [...BINGO_NUMBERS],
+            drawnNumbers: []
+        }];
+        let isDrawing = false;
+
+        function loadState() {
+            const saved = localStorage.getItem('bingoDrawState');
+            if (saved) {
+                const state = JSON.parse(saved);
+                currentRound = state.currentRound;
+                rounds = state.rounds;
+                updateDisplay();
+            }
+        }
+
+        function saveState() {
+            const state = {
+                currentRound,
+                rounds
+            };
+            localStorage.setItem('bingoDrawState', JSON.stringify(state));
+        }
+
+        async function drawNumber() {
+            if (isDrawing) return;
+
+            const currentRoundData = rounds[currentRound];
+
+            if (currentRoundData.availableNumbers.length === 0) {
+                alert('當前輪次所有號碼已抽取完畢！請開始新一輪。');
+                return;
+            }
+
+            isDrawing = true;
+            const drawBtn = document.getElementById('drawBtn');
+            const mainDisplay = document.getElementById('mainDisplay');
+            const currentNumberEl = document.getElementById('currentNumber');
+
+            drawBtn.disabled = true;
+            mainDisplay.classList.add('drawing');
+            currentNumberEl.classList.add('drawing');
+            currentNumberEl.classList.remove('revealed');
+
+            const animationDuration = 2000;
+            const intervalTime = 80;
+            let elapsed = 0;
+
+            const shuffleInterval = setInterval(() => {
+                const tempIndex = Math.floor(Math.random() * currentRoundData.availableNumbers.length);
+                currentNumberEl.textContent = currentRoundData.availableNumbers[tempIndex];
+                elapsed += intervalTime;
+
+                if (elapsed >= animationDuration) {
+                    clearInterval(shuffleInterval);
+
+                    const randomIndex = Math.floor(Math.random() * currentRoundData.availableNumbers.length);
+                    const drawnNumber = currentRoundData.availableNumbers[randomIndex];
+
+                    currentRoundData.availableNumbers.splice(randomIndex, 1);
+                    currentRoundData.drawnNumbers.push(drawnNumber);
+
+                    currentNumberEl.classList.remove('drawing');
+                    currentNumberEl.classList.add('revealed');
+                    mainDisplay.classList.remove('drawing');
+
+                    setTimeout(() => {
+                        currentNumberEl.textContent = drawnNumber;
+                        currentNumberEl.classList.add('revealed');
+
+                        updateDisplay();
+                        saveState();
+                        createConfetti();
+                        playDrawSound();
+
+                        isDrawing = false;
+                        drawBtn.disabled = false;
+                    }, 100);
+                }
+            }, intervalTime);
+        }
+
+        function newRound() {
+            if (rounds[currentRound].availableNumbers.length !== 0) {
+                alert('當前輪次尚未抽完所有號碼！請先抽完所有75個號碼。');
+                return;
+            }
+
+            if (confirm('確定要開始新一輪嗎？舊輪的號碼會保留並縮小顯示。')) {
+                currentRound++;
+                rounds.push({
+                    availableNumbers: [...BINGO_NUMBERS],
+                    drawnNumbers: []
+                });
+                updateDisplay();
+                saveState();
+                alert('✅ 已開始新一輪！');
+            }
+        }
+
+        function resetAll() {
+            const totalDrawn = rounds.reduce((sum, r) => sum + r.drawnNumbers.length, 0);
+
+            if (totalDrawn === 0) {
+                alert('沒有需要重置的記錄');
+                return;
+            }
+
+            if (confirm('確定要全部清除嗎？所有記錄將會被刪除，此操作不可恢復！')) {
+                currentRound = 0;
+                rounds = [{
+                    availableNumbers: [...BINGO_NUMBERS],
+                    drawnNumbers: []
+                }];
+                updateDisplay();
+                saveState();
+                alert('✅ 已全部清除記錄');
+            }
+        }
+
+        function updateDisplay() {
+            const currentNumberEl = document.getElementById('currentNumber');
+            const currentRoundData = rounds[currentRound];
+
+            if (currentRoundData.drawnNumbers.length > 0 && !isDrawing) {
+                currentNumberEl.textContent = currentRoundData.drawnNumbers[currentRoundData.drawnNumbers.length - 1];
+                currentNumberEl.classList.remove('drawing', 'revealed');
+            } else if (currentRoundData.drawnNumbers.length === 0 && !isDrawing) {
+                currentNumberEl.textContent = '準備抽獎';
+                currentNumberEl.classList.remove('drawing', 'revealed');
+            }
+
+            document.getElementById('drawnCount').textContent = currentRoundData.drawnNumbers.length;
+            document.getElementById('remainingCount').textContent = currentRoundData.availableNumbers.length;
+
+            const totalDrawn = rounds.reduce((sum, r) => sum + r.drawnNumbers.length, 0);
+            document.getElementById('historyCount').textContent = `${totalDrawn} 個`;
+
+            const newRoundBtn = document.getElementById('newRoundBtn');
+            if (currentRoundData.availableNumbers.length === 0 && currentRound === 0) {
+                newRoundBtn.classList.add('visible');
+            } else {
+                newRoundBtn.classList.remove('visible');
+            }
+
+            const historyGrid = document.getElementById('historyGrid');
+
+            if (totalDrawn === 0) {
+                historyGrid.innerHTML = '<div class="empty-state">尚未抽取任何號碼</div>';
+            } else {
+                let html = '';
+
+                rounds.forEach((roundData, roundIndex) => {
+                    roundData.drawnNumbers.forEach(num => {
+                        const isOld = roundIndex < currentRound;
+                        const className = isOld ? 'history-item old' : 'history-item';
+                        const roundLabel = `第${roundIndex + 1}輪`;
+                        html += `<div class="${className}">
+                            <div class="number">${num}</div>
+                            <div class="round-label">${roundLabel}</div>
+                        </div>`;
+                    });
+                });
+
+                historyGrid.innerHTML = html;
+            }
+        }
+
+        function playDrawSound() {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                oscillator.frequency.value = 800;
+                oscillator.type = 'sine';
+
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.4);
+
+                setTimeout(() => {
+                    const osc2 = audioContext.createOscillator();
+                    const gain2 = audioContext.createGain();
+
+                    osc2.connect(gain2);
+                    gain2.connect(audioContext.destination);
+
+                    osc2.frequency.value = 1000;
+                    osc2.type = 'sine';
+
+                    gain2.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+                    osc2.start(audioContext.currentTime);
+                    osc2.stop(audioContext.currentTime + 0.3);
+                }, 150);
+            } catch (e) {
+            }
+        }
+
+        function createConfetti() {
+            const colors = ['#d4af37', '#f4d03f', '#b41e3a', '#e74c3c', '#ffffff'];
+
+            for (let i = 0; i < 50; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.left = Math.random() * 100 + 'vw';
+                    confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
+                    document.body.appendChild(confetti);
+
+                    setTimeout(() => confetti.remove(), 4000);
+                }, i * 30);
+            }
+        }
+
+        window.onload = loadState;
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'Enter') {
+                e.preventDefault();
+                drawNumber();
+            }
+        });
+    </script>
+</body>
+</html>
