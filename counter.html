@@ -67,6 +67,74 @@
             margin-top: 5px;
         }
 
+        /* 動畫過渡效果 */
+        .transition-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.95), rgba(118, 75, 162, 0.95));
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            backdrop-filter: blur(10px);
+        }
+
+        .transition-content {
+            text-align: center;
+            color: white;
+            animation: transitionPulse 2s ease-in-out;
+        }
+
+        .transition-title {
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .transition-subtitle {
+            font-size: 24px;
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+
+        .transition-progress {
+            width: 200px;
+            height: 4px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 2px;
+            margin: 0 auto;
+            overflow: hidden;
+        }
+
+        .transition-progress-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #FFD700, #FFA500);
+            border-radius: 2px;
+            animation: progressFill 2.5s ease-out forwards;
+        }
+
+        @keyframes transitionPulse {
+            0% { transform: scale(0.8); opacity: 0; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes progressFill {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+
+        /* 禁用狀態 */
+        .disabled {
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
         .tables-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -334,7 +402,7 @@
 
         <div class="round-info">
             <div class="round-number" id="roundNumber">1</div>
-            <div class="round-text">/ 10</div>
+            <div class="round-text" id="roundText">第 1 題</div>
         </div>
 
         <div class="current-round" id="currentRound">
@@ -355,6 +423,17 @@
         </div>
     </div>
 
+    <!-- 動畫過渡層 -->
+    <div class="transition-overlay" id="transitionOverlay">
+        <div class="transition-content">
+            <div class="transition-title">🎊 第 <span id="transitionRound">1</span> 題完成！</div>
+            <div class="transition-subtitle">準備進入下一題...</div>
+            <div class="transition-progress">
+                <div class="transition-progress-bar"></div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal" id="resetModal">
         <div class="modal-content">
             <h2>⚠️ 確認重置？</h2>
@@ -368,8 +447,6 @@
 
     <script>
         // 計分系統：A=10分，B=6分，C=3分
-        // 最高分：10題 × 10分 = 100分
-        // 分數差距足夠大，有競爭性
         const SCORES = {
             A: 10,
             B: 6,
@@ -377,10 +454,9 @@
         };
 
         let currentRound = 1;
-        const TOTAL_ROUNDS = 10;
         const TABLE_COUNT = 10;
-
         let tableScores = [];
+        let isAnimating = false; // 動畫狀態控制
 
         function initTables() {
             tableScores = [];
@@ -403,6 +479,11 @@
                 const card = createTableCard(table);
                 grid.appendChild(card);
             });
+
+            // 如果正在動畫，禁用所有按鈕
+            if (isAnimating) {
+                disableAllButtons();
+            }
         }
 
         function createTableCard(table) {
@@ -445,6 +526,9 @@
         }
 
         function scoreTable(tableNumber, score, buttonElement) {
+            // 如果正在動畫，禁止計分
+            if (isAnimating) return;
+
             const table = tableScores.find(t => t.tableNumber === tableNumber);
 
             // 檢查是否已經計分
@@ -472,31 +556,53 @@
             // 重新渲染
             renderTables();
 
-            // 檢查是否已有 3 張枱計分
-            const scoredTables = tableScores.filter(t => t.currentRoundScore !== null).length;
-            if (scoredTables >= 3) {
+            // 檢查是否已有完整的 A、B、C 三個名次
+            const hasA = tableScores.some(t => t.currentRoundScore === 'A');
+            const hasB = tableScores.some(t => t.currentRoundScore === 'B');
+            const hasC = tableScores.some(t => t.currentRoundScore === 'C');
+
+            if (hasA && hasB && hasC) {
+                // 延遲一點時間讓用戶看到最後一個選擇，然後開始動畫
                 setTimeout(() => {
-                    autoNextRound();
-                }, 500);
+                    showTransitionAnimation();
+                }, 800);
             }
         }
 
-        function checkAllTablesScored() {
-            const allScored = tableScores.every(table => table.currentRoundScore !== null);
-            if (allScored) {
-                setTimeout(() => {
-                    alert(`✅ 第 ${currentRound} 題所有枱都已計分！\n\n準備進入下一題...`);
-                }, 300);
-            }
+        function showTransitionAnimation() {
+            isAnimating = true;
+            disableAllButtons();
+
+            // 更新動畫內容
+            document.getElementById('transitionRound').textContent = currentRound;
+            
+            // 顯示動畫
+            const overlay = document.getElementById('transitionOverlay');
+            overlay.style.display = 'flex';
+
+            // 2.5秒後隱藏動畫並進入下一題
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                autoNextRound();
+                isAnimating = false;
+                enableAllButtons();
+            }, 2500);
+        }
+
+        function disableAllButtons() {
+            document.querySelectorAll('.score-btn, .control-btn').forEach(btn => {
+                btn.classList.add('disabled');
+            });
+        }
+
+        function enableAllButtons() {
+            document.querySelectorAll('.score-btn, .control-btn').forEach(btn => {
+                btn.classList.remove('disabled');
+            });
         }
 
         function autoNextRound() {
-            // 自動跳到下一題
-            if (currentRound >= TOTAL_ROUNDS) {
-                showFinalResults();
-                return;
-            }
-
+            // 無限題目系統 - 移除題目限制
             currentRound++;
             updateRoundDisplay();
 
@@ -509,50 +615,40 @@
         }
 
         function nextRound() {
-            // 檢查是否已有 3 張枱計分
-            const scoredCount = tableScores.filter(table => table.currentRoundScore !== null).length;
-            
-            // 檢查是否有完整的三個名次（A、B、C）
+            // 如果正在動畫，禁止手動下一題
+            if (isAnimating) return;
+
+            // 檢查是否已有完整的三個名次（A、B、C）
             const hasA = tableScores.some(t => t.currentRoundScore === 'A');
             const hasB = tableScores.some(t => t.currentRoundScore === 'B');
             const hasC = tableScores.some(t => t.currentRoundScore === 'C');
             
-            // 必須有 3 張枱計分，且包含 A、B、C 三個名次
-            const isComplete = scoredCount >= 3 && hasA && hasB && hasC;
+            const isComplete = hasA && hasB && hasC;
             
             if (!isComplete) {
                 let missing = [];
                 if (!hasA) missing.push('冠軍 (A)');
                 if (!hasB) missing.push('亞軍 (B)');
                 if (!hasC) missing.push('季軍 (C)');
-                if (scoredCount < 3) missing.push(`${3 - scoredCount} 張枱`);
                 
                 alert(`⚠️ 第 ${currentRound} 題未完成計分！\n\n缺少：${missing.join('、')}\n\n請完成計分後再進入下一題。`);
                 return;
             }
 
-            if (currentRound >= TOTAL_ROUNDS) {
-                showFinalResults();
-                return;
-            }
-
-            currentRound++;
-            updateRoundDisplay();
-
-            // 清空當前輪次計分
-            tableScores.forEach(table => {
-                table.currentRoundScore = null;
-            });
-
-            renderTables();
+            // 如果已完成，顯示動畫
+            showTransitionAnimation();
         }
 
         function updateRoundDisplay() {
             document.getElementById('roundNumber').textContent = currentRound;
+            document.getElementById('roundText').textContent = `第 ${currentRound} 題`;
             document.getElementById('currentRound').textContent = `第 ${currentRound} 題：請收買佬準備收集物品！`;
         }
 
         function showLeaderboard() {
+            // 如果正在動畫，禁止顯示排行榜
+            if (isAnimating) return;
+
             const leaderboard = document.getElementById('leaderboard');
             const content = document.getElementById('leaderboardContent');
 
@@ -569,7 +665,7 @@
             // 添加統計信息
             const totalScores = sortedTables.map(t => t.totalScore);
             const maxScore = Math.max(...totalScores);
-            const avgScore = (totalScores.reduce((a, b) => a + b, 0) / totalScores.length).toFixed(1);
+            const avgScore = totalScores.length > 0 ? (totalScores.reduce((a, b) => a + b, 0) / totalScores.length).toFixed(1) : 0;
             
             content.innerHTML += `
                 <div style="margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; text-align: center;">
@@ -583,41 +679,10 @@
             leaderboard.style.display = 'block';
             leaderboard.scrollIntoView({ behavior: 'smooth' });
         }
-        
-        function updateLeaderboardAuto() {
-            const content = document.getElementById('leaderboardContent');
-            if (document.getElementById('leaderboard').style.display === 'block') {
-                const sortedTables = [...tableScores].sort((a, b) => b.totalScore - a.totalScore);
-                content.innerHTML = sortedTables.map((table, index) => `
-                    <div class="leaderboard-item">
-                        <div class="leaderboard-rank rank-${index + 1}">${index + 1}</div>
-                        <div class="leaderboard-table">第 ${table.tableNumber} 圍</div>
-                        <div class="leaderboard-score">${table.totalScore} 分</div>
-                    </div>
-                `).join('');
-            }
-        }
-
-        function showFinalResults() {
-            const sortedTables = [...tableScores].sort((a, b) => b.totalScore - a.totalScore);
-            const winners = sortedTables.filter(t => t.totalScore === sortedTables[0].totalScore);
-
-            let message = `🎊 比賽結束！🎊\n\n`;
-            message += `冠軍：第 ${winners.map(w => w.tableNumber).join('、')} 圍\n`;
-            message += `得分：${sortedTables[0].totalScore} 分\n\n`;
-
-            if (winners.length > 1) {
-                message += `🏆 有 ${winners.length} 張枱同分冠軍！🏆\n\n`;
-                message += `所有冠軍圍嘅成員都有一份獎品！`;
-            } else {
-                message += `🏆 恭喜第 ${sortedTables[0].tableNumber} 圍獲得冠軍！🏆\n\n`;
-                message += `該圍所有成員都有一份獎品！`;
-            }
-
-            alert(message);
-        }
 
         function showResetModal() {
+            // 如果正在動畫，禁止重置
+            if (isAnimating) return;
             document.getElementById('resetModal').style.display = 'flex';
         }
 
@@ -627,10 +692,12 @@
 
         function resetAll() {
             currentRound = 1;
+            isAnimating = false;
             updateRoundDisplay();
             initTables();
             hideResetModal();
             document.getElementById('leaderboard').style.display = 'none';
+            enableAllButtons();
             alert('✅ 已重置所有數據！');
         }
 
